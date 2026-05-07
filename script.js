@@ -1,5 +1,5 @@
 (function(){
-  
+    // Canvas animation (same as before)
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     let width, height, particles;
@@ -62,27 +62,29 @@
     animateCanvas();
     canvas.style.pointerEvents = "none";
 
-   
+    // Tab switching
     const loginTab = document.getElementById("loginTabBtn");
     const registerTab = document.getElementById("registerTabBtn");
     const loginPanel = document.getElementById("loginPanel");
     const registerPanel = document.getElementById("registerPanel");
 
-    loginTab.addEventListener("click", () => {
-        loginTab.classList.add("active");
-        registerTab.classList.remove("active");
-        loginPanel.classList.add("active");
-        registerPanel.classList.remove("active");
-    });
+    if(loginTab && registerTab) {
+        loginTab.addEventListener("click", () => {
+            loginTab.classList.add("active");
+            registerTab.classList.remove("active");
+            loginPanel.classList.add("active");
+            registerPanel.classList.remove("active");
+        });
 
-    registerTab.addEventListener("click", () => {
-        registerTab.classList.add("active");
-        loginTab.classList.remove("active");
-        registerPanel.classList.add("active");
-        loginPanel.classList.remove("active");
-    });
+        registerTab.addEventListener("click", () => {
+            registerTab.classList.add("active");
+            loginTab.classList.remove("active");
+            registerPanel.classList.add("active");
+            loginPanel.classList.remove("active");
+        });
+    }
 
-    
+    // Toast message
     const toast = document.getElementById("toastMsg");
     function showMessage(text, isError = false) {
         toast.style.opacity = "1";
@@ -92,26 +94,22 @@
         setTimeout(() => { toast.style.opacity = "0"; }, 2700);
     }
 
-  
+    // Forgot password
     const fakeForgot = document.getElementById("fakeForgot");
     if (fakeForgot) {
         fakeForgot.addEventListener("click", (e) => {
             e.preventDefault();
-            showMessage("📡 Password reset demo — contact support", false);
+            showMessage("📡 Contact administrator to reset password", false);
         });
     }
 
-    
-    function getUsers() {
-        const raw = localStorage.getItem("nexus_users_db");
-        if (raw) return JSON.parse(raw);
-        return [];
-    }
-    function saveUsers(users) {
-        localStorage.setItem("nexus_users_db", JSON.stringify(users));
-    }
-  
 
+
+
+
+    
+
+    // Login with API
     const loginForm = document.getElementById("loginFormElement");
     const loginEmail = document.getElementById("loginEmail");
     const loginPassword = document.getElementById("loginPassword");
@@ -128,7 +126,7 @@
     loadRememberedLogin();
 
     if (loginForm) {
-        loginForm.addEventListener("submit", (e) => {
+        loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             const email = loginEmail.value.trim();
             const pwd = loginPassword.value.trim();
@@ -137,27 +135,40 @@
                 showMessage("⚠️ Please enter email and password", true);
                 return;
             }
-            const users = getUsers();
-            const matched = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === pwd);
-            if (matched) {
-                if (rememberCheck.checked) {
-                    localStorage.setItem("rem_nexus_email", email);
-                    localStorage.setItem("rem_nexus_flag", "true");
+
+            try {
+                const response = await fetch('api/login.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, password: pwd })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    if (rememberCheck.checked) {
+                        localStorage.setItem("rem_nexus_email", email);
+                        localStorage.setItem("rem_nexus_flag", "true");
+                    } else {
+                        localStorage.removeItem("rem_nexus_email");
+                        localStorage.setItem("rem_nexus_flag", "false");
+                    }
+
+                    localStorage.setItem("nexus_logged_in_user", JSON.stringify(data.user));
+                    showMessage(`✅ Welcome back, ${data.user.fullname}! Redirecting...`, false);
+                    
+                    setTimeout(() => {
+                        window.location.href = "dashboards.html";
+                    }, 1500);
                 } else {
-                    localStorage.removeItem("rem_nexus_email");
-                    localStorage.setItem("rem_nexus_flag", "false");
+                    showMessage("❌ " + data.message, true);
                 }
-                showMessage(`✅ Welcome back, ${matched.fullname}! Login successful.`, false);
-                setTimeout(() => {
-                    showMessage("✨ Secure dashboard coming soon...", false);
-                }, 1200);
-            } else {
-                showMessage("❌ Invalid credentials. Try demo@nexus.com / demo123 or register.", true);
+            } catch(error) {
+                showMessage("❌ Connection error. Please try again.", true);
             }
         });
     }
 
-  
+    // Register with API
     const regForm = document.getElementById("registerFormElement");
     const regFull = document.getElementById("regFullname");
     const regEmail = document.getElementById("regEmail");
@@ -166,7 +177,7 @@
     const termsBox = document.getElementById("termsCheckbox");
 
     if (regForm) {
-        regForm.addEventListener("submit", (e) => {
+        regForm.addEventListener("submit", async (e) => {
             e.preventDefault();
 
             const fullname = regFull.value.trim();
@@ -196,41 +207,37 @@
                 return;
             }
 
-            const users = getUsers();
-            if (users.find(u => u.email === email)) {
-                showMessage("⚠️ Email already registered. Try logging in.", true);
-                return;
+            try {
+                const response = await fetch('api/register.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fullname: fullname, email: email, password: password })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(`🎉 Account created! Welcome ${fullname}. Please login.`, false);
+                    
+                    regFull.value = "";
+                    regEmail.value = "";
+                    regPass.value = "";
+                    regConfirm.value = "";
+                    termsBox.checked = false;
+
+                    setTimeout(() => {
+                        if(loginTab) loginTab.click();
+                        loginEmail.value = email;
+                        loginPassword.value = "";
+                        showMessage("🔓 Now you can login with your new credentials", false);
+                    }, 1500);
+                } else {
+                    showMessage("❌ " + data.message, true);
+                }
+            } catch(error) {
+                showMessage("❌ Registration failed. Please try again.", true);
             }
-
-           
-            const newUser = {
-                fullname: fullname,
-                email: email,
-                password: password,
-                joined: new Date().toISOString()
-            };
-            users.push(newUser);
-            saveUsers(users);
-
-            showMessage(`🎉 Account created! Welcome ${fullname}. Please login.`, false);
-            
-          
-            regFull.value = "";
-            regEmail.value = "";
-            regPass.value = "";
-            regConfirm.value = "";
-            termsBox.checked = false;
-
-            
-            setTimeout(() => {
-                loginTab.click();
-                loginEmail.value = email;
-                loginPassword.value = "";
-                showMessage("🔓 Now you can login with your new credentials", false);
-            }, 1500);
         });
     }
-
 
     setTimeout(() => {
         if (!localStorage.getItem("nexus_hint")) {
