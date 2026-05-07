@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>NEXUS | Neon Auth Flow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, 'Segoe UI', 'Poppins', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #050b14;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Canvas animation background */
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Main glass container */
+        .glass-container {
+            position: relative;
+            z-index: 20;
+            width: 100%;
+            max-width: 480px;
+            margin: 1.5rem;
+            perspective: 1400px;
+        }
+
+        /* 3D Flip Wrapper */
+        .card-flipper {
+            position: relative;
+            width: 100%;
+            transition: transform 0.65s cubic-bezier(0.23, 0.95, 0.34, 1.05);
+            transform-style: preserve-3d;
+        }
+
+        /* Both sides styling */
+        .login-box, .register-box {
+            background: rgba(8, 18, 28, 0.78);
+            backdrop-filter: blur(16px);
+            border-radius: 2rem;
+            padding: 2.5rem 2rem 2.8rem;
+            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 255, 255, 0.25);
+            border: 1px solid rgba(0, 230, 250, 0.35);
+            transition: all 0.25s ease;
+            width: 100%;
+            backface-visibility: hidden;
+        }
+
+        .login-box {
+            transform: rotateY(0deg);
+        }
+
+        .register-box {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform: rotateY(180deg);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .flipped .card-flipper {
+            transform: rotateY(180deg);
+        }
+
+        .flipped .login-box {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .flipped .register-box {
+            opacity: 1;
+            pointer-events: all;
+            transform: rotateY(0deg);
+            position: relative;
+        }
+
+        /* Typography */
+        h2 {
+            font-size: 2.3rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 1px;
+            background: linear-gradient(125deg, #c0ffff, #3cc7f0, #a066ff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin-bottom: 2rem;
+            text-shadow: 0 0 12px rgba(0, 210, 255, 0.3);
+        }
+
+        /* Input Groups */
+        .input-box {
+            position: relative;
+            margin-bottom: 2rem;
+            border-bottom: 1.8px solid rgba(0, 210, 255, 0.45);
+            transition: all 0.2s;
+        }
+
+        .input-box:hover, .input-box:focus-within {
+            border-bottom-color: #0ef;
+            box-shadow: 0 2px 0 #0cf;
+        }
+
+        .input-box .icon {
+            position: absolute;
+            left: 0;
+            bottom: 10px;
+            font-size: 1.4rem;
+            color: #0ef;
+            transition: 0.2s;
+        }
+
+        .input-box input {
+            width: 100%;
+            padding: 12px 0 8px 38px;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 1rem;
+            color: #f0fcff;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .input-box label {
+            position: absolute;
+            left: 38px;
+            bottom: 10px;
+            color: #aad0ff;
+            pointer-events: none;
+            font-size: 0.95rem;
+            transition: 0.25s ease;
+            font-weight: 400;
+        }
+
+        .input-box input:focus ~ label,
+        .input-box input:valid ~ label {
+            transform: translateY(-24px);
+            font-size: 0.75rem;
+            color: #6efff0;
+            text-shadow: 0 0 2px cyan;
+        }
+
+        /* Checkbox & extras */
+        .remember-forgot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 1.5rem 0 2rem;
+            font-size: 0.85rem;
+            color: #cceeff;
+        }
+
+        .remember-forgot label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .remember-forgot input {
+            accent-color: #0cf;
+            width: 1rem;
+            height: 1rem;
+            cursor: pointer;
+        }
+
+        .remember-forgot a {
+            color: #5effea;
+            text-decoration: none;
+            transition: 0.2s;
+            font-weight: 500;
+        }
+
+        .remember-forgot a:hover {
+            text-shadow: 0 0 6px cyan;
+            text-decoration: underline;
+        }
+
+        /* Neon Button */
+        button {
+            width: 100%;
+            background: linear-gradient(85deg, #00a6c4, #2a5eff);
+            border: none;
+            padding: 0.85rem;
+            border-radius: 50px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 0.8px;
+            cursor: pointer;
+            transition: 0.25s;
+            box-shadow: 0 6px 14px rgba(0, 180, 230, 0.25);
+            margin-top: 0.3rem;
+        }
+
+        button:hover {
+            transform: scale(1.01);
+            background: linear-gradient(85deg, #00c2e6, #3f6eff);
+            box-shadow: 0 8px 22px rgba(0, 210, 255, 0.45);
+        }
+
+        .register-link, .login-link {
+            text-align: center;
+            margin-top: 1.8rem;
+            font-size: 0.9rem;
+        }
+
+        .register-link p, .login-link p {
+            color: #bbdef5;
+        }
+
+        .register-link a, .login-link a {
+            color: #8efff2;
+            font-weight: 600;
+            text-decoration: none;
+            margin-left: 0.4rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .register-link a:hover, .login-link a:hover {
+            text-shadow: 0 0 6px cyan;
+            text-decoration: underline;
+        }
+
+        /* Toast message */
+        .message-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(6, 16, 28, 0.92);
+            backdrop-filter: blur(18px);
+            padding: 12px 28px;
+            border-radius: 60px;
+            color: #b5ffff;
+            font-weight: 500;
+            border-left: 4px solid #0cf;
+            font-size: 0.9rem;
+            z-index: 300;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+            font-family: monospace;
+            letter-spacing: 0.6px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+        }
+
+        @media (max-width: 520px) {
+            .login-box, .register-box { padding: 1.8rem 1.5rem; }
+            h2 { font-size: 1.9rem; }
+            .message-toast { white-space: normal; text-align: center; width: 85%; font-size: 0.8rem; }
+            .input-box .icon { font-size: 1.2rem; }
+        }
+
+        /* autofill fix */
+        input:-webkit-autofill,
+        input:-webkit-autofill:focus {
+            transition: background-color 0s 600000s, color 0s 600000s;
+            -webkit-text-fill-color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="glass-container" id="flipContainer">
+        <div class="card-flipper">
+            <!-- LOGIN PANEL -->
+            <div class="login-box">
+                <form id="loginFormElement" action="#" method="post">
+                    <h2>⚡ LOGIN</h2>
+                    <div class="input-box">
+                        <span class="icon"><ion-icon name="mail-outline"></ion-icon></span>
+                        <input type="email" id="loginEmail" required autocomplete="email" />
+                        <label>Email</label>
+                    </div>
+                    <div class="input-box">
+                        <span class="icon"><ion-icon name="lock-closed-outline"></ion-icon></span>
+                        <input type="password" id="loginPassword" required autocomplete="current-password" />
+                        <label>Password</label>
+                    </div>
+                    <div class="remember-forgot">
+                        <label><input type="checkbox" id="rememberMeCheckbox" /> Remember Me</label>
+                        <a href="#" id="fakeForgot">Recover?</a>
+                    </div>
+                    <button type="submit" id="loginBtn">⟡ ENTER ⟡</button>
+                    <div class="register-link">
+                        <p>No account? <a id="gotoRegisterBtn">Create one →</a></p>
+                    </div>
+                </form>
+            </div>
+
+            <!-- REGISTER PANEL (Full functional) -->
+            <div class="register-box">
+                <form id="registerFormElement" action="#" method="post">
+                    <h2>🔮 REGISTER</h2>
+                    <div class="input-box">
+                        <span class="icon"><ion-icon name="person-outline"></ion-icon></span>
+                        <input type="text" id="regFullname" required autocomplete="name" />
+                        <label>Full Name</label>
+                    </div>
+                    <div class="input-box">
+                        <span class="icon"><ion-icon name="mail-outline"></ion-icon></span>
+                        <input type="email" id="regEmail" required autocomplete="email" />
+                        <label>Email Address</label>
+                    </div>
+                    <div class="input-box">
+                        <span class="icon"><ion-icon name="lock-closed-outline"></ion-icon></span>
+                        <input type="password" id="regPassword" required autocomplete="new-password" />
+                        <label>Password</label>
+                    </div>
+                    <div class="input-box">
+                        <span class="icon"><ion-icon name="shield-checkmark-outline"></ion-icon></span>
+                        <input type="password" id="regConfirmPassword" required autocomplete="off" />
+                        <label>Confirm Secret</label>
+                    </div>
+                    <div class="remember-forgot">
+                        <label><input type="checkbox" id="termsCheckbox" /> Accept Terms & Cyber Code</label>
+                    </div>
+                    <button type="submit" id="registerBtn">🚀 LAUNCH ACCOUNT</button>
+                    <div class="login-link">
+                        <p>Already registered? <a id="gotoLoginBtn">Sign in →</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastMsg" class="message-toast" style="opacity:0;">✦ Nexus ready ✦</div>
+
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+
+    <!-- MAIN SCRIPT: enhanced canvas + full auth -->
+    <script>
+        (function(){
+            // ---------- HYPER DRIVE CANVAS PARTICLES ----------
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            let width, height, particles;
+            const particleCount = 210;
+            const colors = ["#00f5ff", "#44ffaa", "#ff44ee", "#3c9eff", "#ffe16e"];
+
+            function initCanvas() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+                particles = [];
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push(new Particle());
+                }
+            }
+
+            class Particle {
+                constructor() { this.reset(); }
+                reset() {
+                    this.x = Math.random() * width;
+                    this.y = height / 2 + (Math.random() - 0.5) * 90;
+                    this.vx = (Math.random() - 0.5) * 9 + 1.2;
+                    this.vy = (Math.random() - 0.5) * 1.2;
+                    this.life = 0;
+                    this.maxLife = 55 + Math.random() * 140;
+                    this.color = colors[Math.floor(Math.random() * colors.length)];
+                    this.waveAmp = 1.8 + Math.random() * 6;
+                    this.waveFreq = 0.008 + Math.random() * 0.025;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 1.6;
+                    ctx.globalAlpha = Math.max(0, 1 - this.life / this.maxLife) * 0.8;
+                    ctx.moveTo(this.x, this.y);
+                    this.x += this.vx;
+                    // fluid sine distortion
+                    this.y += this.vy + Math.sin(this.x * this.waveFreq) * this.waveAmp * 0.6;
+                    ctx.lineTo(this.x, this.y);
+                    ctx.stroke();
+                    this.life++;
+                    if (this.life >= this.maxLife || this.x > width + 70 || this.x < -70 || this.y > height + 120 || this.y < -120) {
+                        this.reset();
+                        this.x = Math.random() * width;
+                        this.y = height / 2 + (Math.random() - 0.5) * 110;
+                    }
+                }
+            }
+
+            function animateCanvas() {
+                ctx.fillStyle = "rgba(4, 10, 20, 0.12)";
+                ctx.fillRect(0, 0, width, height);
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = "#2cf";
+                particles.forEach(p => p.draw());
+                ctx.shadowBlur = 0;
+                requestAnimationFrame(animateCanvas);
+            }
+
+            window.addEventListener("resize", () => { initCanvas(); });
+            initCanvas();
+            animateCanvas();
+            canvas.style.pointerEvents = "none";
+
+            // ---------- FLIP + AUTH LOGIC (LocalStorage) ----------
+            const container = document.getElementById("flipContainer");
+            const gotoRegister = document.getElementById("gotoRegisterBtn");
+            const gotoLogin = document.getElementById("gotoLoginBtn");
+            const fakeForgot = document.getElementById("fakeForgot");
+
+            const toast = document.getElementById("toastMsg");
+            function showMessage(text, isError = false) {
+                toast.style.opacity = "1";
+                toast.style.color = isError ? "#ffab9a" : "#b6ffff";
+                toast.style.borderLeftColor = isError ? "#ff5c7c" : "#0ef";
+                toast.innerText = text;
+                setTimeout(() => { toast.style.opacity = "0"; }, 2700);
+            }
+
+            // Flip controls
+            gotoRegister.addEventListener("click", (e) => {
+                e.preventDefault();
+                container.classList.add("flipped");
+            });
+            gotoLogin.addEventListener("click", (e) => {
+                e.preventDefault();
+                container.classList.remove("flipped");
+            });
+            fakeForgot.addEventListener("click", (e) => {
+                e.preventDefault();
+                showMessage("📡 Recovery sent to orbital mail (demo)", false);
+            });
+
+            // ----- Storage helpers -----
+            function getUsers() {
+                const raw = localStorage.getItem("nexus_users_db");
+                if (raw) return JSON.parse(raw);
+                return [];
+            }
+            function saveUsers(users) {
+                localStorage.setItem("nexus_users_db", JSON.stringify(users));
+            }
+
+            // Seed demo user if empty (smooth experience)
+            if (!localStorage.getItem("nexus_users_db")) {
+                const defaultUsers = [
+                    { fullname: "Neon Ghost", email: "demo@nexus.com", password: "demo123" }
+                ];
+                saveUsers(defaultUsers);
+            }
+
+            // LOGIN handling
+            const loginForm = document.getElementById("loginFormElement");
+            const loginEmail = document.getElementById("loginEmail");
+            const loginPassword = document.getElementById("loginPassword");
+            const rememberCheck = document.getElementById("rememberMeCheckbox");
+
+            function loadRememberedLogin() {
+                const savedMail = localStorage.getItem("rem_nexus_email");
+                const savedFlag = localStorage.getItem("rem_nexus_flag");
+                if (savedFlag === "true" && savedMail) {
+                    loginEmail.value = savedMail;
+                    rememberCheck.checked = true;
+                } else {
+                    rememberCheck.checked = false;
+                }
+            }
+            loadRememberedLogin();
+
+            loginForm.addEventListener("submit", (e) => {
+                e.preventDefault();
+                const email = loginEmail.value.trim();
+                const pwd = loginPassword.value.trim();
+
+                if (!email || !pwd) {
+                    showMessage("⚠️ Fill both fields to access the grid", true);
+                    return;
+                }
+                const users = getUsers();
+                const matched = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === pwd);
+                if (matched) {
+                    if (rememberCheck.checked) {
+                        localStorage.setItem("rem_nexus_email", email);
+                        localStorage.setItem("rem_nexus_flag", "true");
+                    } else {
+                        localStorage.removeItem("rem_nexus_email");
+                        localStorage.setItem("rem_nexus_flag", "false");
+                    }
+                    showMessage(`✨ Access granted. Welcome, ${matched.fullname}. ✨`, false);
+                    setTimeout(() => {
+                        showMessage("🔓 Virtual cockpit ready (demo mode)", false);
+                    }, 1500);
+                } else {
+                    showMessage("❌ Invalid credentials. Try demo@nexus.com / demo123 or register.", true);
+                }
+            });
+
+            // REGISTER handler (full fields, password match, terms)
+            const regForm = document.getElementById("registerFormElement");
+            const regFull = document.getElementById("regFullname");
+            const regEmail = document.getElementById("regEmail");
+            const regPass = document.getElementById("regPassword");
+            const regConfirm = document.getElementById("regConfirmPassword");
+            const termsBox = document.getElementById("termsCheckbox");
+
+            regForm.addEventListener("submit", (e) => {
+                e.preventDefault();
+
+                const fullname = regFull.value.trim();
+                const emailRaw = regEmail.value.trim();
+                const email = emailRaw.toLowerCase();
+                const password = regPass.value.trim();
+                const confirmPwd = regConfirm.value.trim();
+
+                if (!fullname || !email || !password || !confirmPwd) {
+                    showMessage("📛 All fields required", true);
+                    return;
+                }
+                if (password.length < 5) {
+                    showMessage("🔐 Password must be at least 5 characters", true);
+                    return;
+                }
+                if (password !== confirmPwd) {
+                    showMessage("⛔ Passwords do not match", true);
+                    return;
+                }
+                if (!termsBox.checked) {
+                    showMessage("📜 You must accept Terms & Conditions", true);
+                    return;
+                }
+                if (!email.includes("@") || !email.includes(".")) {
+                    showMessage("📧 Provide a valid email address", true);
+                    return;
+                }
+
+                const users = getUsers();
+                if (users.find(u => u.email === email)) {
+                    showMessage("⚠️ Email already exists. Return to login.", true);
+                    return;
+                }
+
+                // create new identity
+                const newUser = {
+                    fullname: fullname,
+                    email: email,
+                    password: password,
+                    joined: new Date().toISOString()
+                };
+                users.push(newUser);
+                saveUsers(users);
+
+                showMessage(`🎉 HACK THE PLANET! Welcome ${fullname}. Account created.`, false);
+                // clear register form
+                regFull.value = "";
+                regEmail.value = "";
+                regPass.value = "";
+                regConfirm.value = "";
+                termsBox.checked = false;
+
+                // flip to login and prefill email
+                setTimeout(() => {
+                    container.classList.remove("flipped");
+                    loginEmail.value = email;
+                    loginPassword.value = "";
+                    showMessage("🌟 Login with your new credentials now", false);
+                }, 1400);
+            });
+
+            // Additional: maintain floating label visual for existing values
+            const allInputs = document.querySelectorAll('.input-box input');
+            allInputs.forEach(inp => {
+                if (inp.value.trim() !== "") {
+                    inp.dispatchEvent(new Event('focus'));
+                    inp.dispatchEvent(new Event('blur'));
+                }
+                inp.addEventListener('blur', function() {
+                    if (this.value.trim() !== "") {
+                        // ensures label float
+                    }
+                });
+            });
+
+            // first-time welcome hint
+            setTimeout(() => {
+                if (!localStorage.getItem("nexus_hint")) {
+                    showMessage("💎 Create an account or use demo@nexus.com / demo123", false);
+                    localStorage.setItem("nexus_hint", "true");
+                }
+            }, 600);
+        })();
+    </script>
+</body>
+</html>
